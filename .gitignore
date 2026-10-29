@@ -1,5 +1,7 @@
 node_modules/
 .wrangler/
+# 部署时由 scripts/pack-cli.mjs 生成
+public/cli/
 # 本机自签名证书（含私钥）
 certs/
 # 本地开发工具配置

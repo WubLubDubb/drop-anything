@@ -57,6 +57,14 @@
       </p>
     </section>
 
+    <details id="cli" class="card cli" hidden>
+      <summary>没有浏览器的设备（比如远程服务器）？用命令行</summary>
+      <p id="cli-hint" class="sub"></p>
+      <pre id="cli-cmd" class="cmd"></pre>
+      <div class="row"><button id="cli-copy" class="secondary">复制命令</button></div>
+      <p class="sub">需要 Node.js 20 以上。收到的文件保存在运行命令的目录；要从那台设备发文件，把 <code>receive</code> 换成 <code>send 文件名</code>。</p>
+    </details>
+
     <section id="transfers-section" hidden>
       <h2>传输记录</h2>
       <div id="transfers" class="transfers"></div>

@@ -59,11 +59,15 @@ PairDrop 功能更丰富（永久配对、多语言、PWA、系统分享菜单�
 
 `cli/` 里是命令行客户端，给远程服务器这类没有浏览器的设备用。它和网页端使用同一套协议，只与同一房间里的设备通信，信令全部端到端加密。
 
+**不用 clone 项目**：每个部署都会自带命令行客户端的安装包。在网页底部展开「没有浏览器的设备？用命令行」，复制里面的命令即可，形如（需要 Node.js 20+；node-datachannel 带预编译二进制）：
+
 ```bash
-cd cli
-npm install          # 需要 Node.js 20+；node-datachannel 带预编译二进制
-npm install -g .     # 可选：安装 drop-anything 命令
+npx -y https://drop.example.com/cli/drop-anything-cli-<哈希>.tgz receive --server https://drop.example.com
 ```
+
+如果网页上已经加入了房间，复制的命令会带上配对码（`DROP_CODE=…`），那台设备运行后直接进入同一房间。文件名里带着安装包内容的哈希，因为 npx 按网址缓存；部署更新后重新复制一次命令即可。
+
+也可以从源码安装：`cd cli && npm install && npm install -g .`（安装 `drop-anything` 命令，下面的例子用的就是它）。
 
 **在服务器上接收**：终端会显示配对码和二维码。手机或电脑在浏览器里加入房间后，给标着「Linux · 命令行」的设备发文件即可。文件边收边写入磁盘，不占内存；遇到重名文件会自动改名，不会覆盖。
 
@@ -135,7 +139,7 @@ npx wrangler login    # 在浏览器中登录 Cloudflare 账号并授权
 npx wrangler deploy   # 部署完成后会输出 https://drop-anything.<你的子域>.workers.dev
 ```
 
-本地调试用 `npx wrangler dev`（默认 http://localhost:8787）。Workers 版本默认不允许中转文件（`wrangler.toml` 中 `RELAY = "0"`），开启会消耗请求额度。
+`wrangler deploy` 会先把命令行客户端打包进 `public/cli/`（`scripts/pack-cli.mjs`），由同一个部署提供。本地调试用 `npx wrangler dev`（默认 http://localhost:8787）。Workers 版本默认不允许中转文件（`wrangler.toml` 中 `RELAY = "0"`），开启会消耗请求额度。
 
 ### 云服务器
 
@@ -147,7 +151,7 @@ npm install --omit=dev
 PORT=3000 TRUST_PROXY=1 node server.js
 ```
 
-长期运行可用 `pm2 start server.js --name drop` 或 systemd。
+长期运行可用 `pm2 start server.js --name drop` 或 systemd。`npm start` 会自动把命令行客户端打包进 `public/cli/`；直接运行 `server.js` 时，要先执行一次 `npm run pack-cli`（更新代码后也要再执行），否则网页上不会出现命令行的命令。
 
 HTTPS 推荐用 Caddy 自动申请证书，`/etc/caddy/Caddyfile`：
 

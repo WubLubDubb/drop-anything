@@ -61,11 +61,15 @@ Click **New room** to generate an 8-character pairing code (e.g. `K7PM-Q3XD`); t
 
 `cli/` contains a command-line client for devices without a browser, such as a remote server. It speaks the same protocol as the web page and only talks to devices in the same room, so all of its signaling is end-to-end encrypted.
 
+**No need to clone the project**: every deployment serves the CLI package itself. Expand **Device without a browser? Use the command line** (「没有浏览器的设备？用命令行」) at the bottom of the page and copy the command, which looks like this (requires Node.js 20+; node-datachannel ships prebuilt binaries):
+
 ```bash
-cd cli
-npm install          # Node.js 20+; node-datachannel ships prebuilt binaries
-npm install -g .     # optional: adds the drop-anything command
+npx -y https://drop.example.com/cli/drop-anything-cli-<hash>.tgz receive --server https://drop.example.com
 ```
+
+If you have already joined a room on the page, the copied command includes its pairing code (as `DROP_CODE=…`), so the device joins that room right away. The file name contains a hash of the package contents, because npx caches packages by URL; copy the command again after updating the deployment.
+
+To install it from a clone instead: `cd cli && npm install && npm install -g .` (adds the `drop-anything` command, used in the examples below).
 
 **Receive on the server**: it prints a pairing code and a QR code. Join the room from the browser on your phone or laptop, then send files to the device labeled `Linux · 命令行` (CLI). Files are streamed to disk instead of being held in memory, and existing files are never overwritten.
 
@@ -137,7 +141,7 @@ npx wrangler login    # log in to Cloudflare in the browser and authorize
 npx wrangler deploy   # prints https://drop-anything.<your-subdomain>.workers.dev
 ```
 
-Use `npx wrangler dev` for local development (http://localhost:8787 by default). Relay is disabled in the Workers version (`RELAY = "0"` in `wrangler.toml`); enabling it consumes request quota.
+`wrangler deploy` first packs the CLI into `public/cli/` (`scripts/pack-cli.mjs`), so it's served by the same deployment. Use `npx wrangler dev` for local development (http://localhost:8787 by default). Relay is disabled in the Workers version (`RELAY = "0"` in `wrangler.toml`); enabling it consumes request quota.
 
 ### VPS
 
@@ -149,7 +153,7 @@ npm install --omit=dev
 PORT=3000 TRUST_PROXY=1 node server.js
 ```
 
-Use `pm2 start server.js --name drop` or systemd to keep it running.
+Use `pm2 start server.js --name drop` or systemd to keep it running. `npm start` packs the CLI into `public/cli/` automatically; when starting `server.js` directly, run `npm run pack-cli` once first (and again after updating), otherwise the page won't offer the CLI command.
 
 Caddy is recommended for automatic HTTPS. `/etc/caddy/Caddyfile`:
 

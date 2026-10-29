@@ -2,6 +2,11 @@ name = "drop-anything"
 main = "worker.js"
 compatibility_date = "2025-09-01"
 
+# 部署前把命令行客户端打包进 public/cli/，可以直接用 npx 从网站运行
+[build]
+command = "node ../scripts/pack-cli.mjs"
+watch_dir = "../cli"
+
 # 前端直接复用项目根目录的 public/
 [assets]
 directory = "../public"

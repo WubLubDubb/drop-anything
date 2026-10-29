@@ -810,6 +810,7 @@ function leaveRoom() {
 }
 
 function renderRoom() {
+  renderCli();
   $('room-out').hidden = !!state.roomCode;
   $('room-in').hidden = !state.roomCode;
   const qr = $('room-qr');
@@ -832,6 +833,41 @@ function loadQRCode() {
   s.src = QR_SCRIPT;
   s.onload = renderRoom;
   document.head.appendChild(s);
+}
+
+// ---------- 命令行客户端 ----------
+// 部署时打包好的命令行客户端放在 cli/ 下，文件名带内容哈希（见 scripts/pack-cli.mjs）。
+// 这里给出在没有浏览器的设备上直接用 npx 运行的命令，不用 clone 项目
+
+let cliFile = null;
+
+async function loadCli() {
+  try {
+    const res = await fetch('cli/latest.json', { cache: 'no-store' });
+    if (!res.ok) return;
+    const { file } = await res.json();
+    if (!/^[\w.-]+\.tgz$/.test(file)) return;
+    cliFile = file;
+  } catch {
+    return;
+  }
+  renderCli();
+}
+
+// 在房间里时带上配对码，对方运行后直接加入同一房间；用环境变量传，其他用户用 ps 看不到
+function cliCommand() {
+  const base = location.origin + location.pathname.replace(/[^/]*$/, '');
+  const cmd = `npx -y ${base}cli/${cliFile} receive --server ${location.origin}`;
+  return state.roomCode ? `DROP_CODE=${formatCode(state.roomCode)} ${cmd}` : cmd;
+}
+
+function renderCli() {
+  if (!cliFile) return;
+  $('cli').hidden = false;
+  $('cli-cmd').textContent = cliCommand();
+  $('cli-hint').textContent = state.roomCode
+    ? '在那台设备上运行下面的命令，命令里带着当前房间的配对码，运行后它会直接出现在上面的设备列表里。'
+    : '在那台设备上运行下面的命令，终端会显示配对码，在这里输入配对码即可。也可以先新建房间，命令会自动带上配对码。';
 }
 
 let fileTarget = null;
@@ -992,6 +1028,10 @@ $('lan-enable').onclick = () => enableLanDirect();
 renderLan();
 $('room-create').onclick = () => joinRoom(newCode());
 $('room-leave').onclick = leaveRoom;
+$('cli-copy').onclick = () => {
+  const cmd = cliCommand();
+  navigator.clipboard?.writeText(cmd).then(() => toast('命令已复制'), () => toast('复制失败，请手动选择'));
+};
 $('room-copy').onclick = () => {
   const link = roomLink(state.roomCode);
   navigator.clipboard?.writeText(link).then(() => toast('链接已复制'), () => toast(link));
@@ -1011,3 +1051,4 @@ if (linkCode || savedCode) joinRoom(linkCode || savedCode);
 
 connect();
 restoreLanDirect();
+loadCli();

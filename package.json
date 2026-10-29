@@ -4,7 +4,9 @@
   "description": "在同一网络或通过房间码互传文件，WebRTC 直连失败时自动经服务器中转",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "prestart": "node scripts/pack-cli.mjs",
+    "start": "node server.js",
+    "pack-cli": "node scripts/pack-cli.mjs"
   },
   "engines": {
     "node": ">=18"
