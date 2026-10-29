@@ -9,6 +9,7 @@ const ACK_TIMEOUT = 30000;
 const ID_LEN = 12;                 // 与 server.js 保持一致
 const HIGH_WATER = 8 * 1024 * 1024;
 const HEARTBEAT = 30000;           // 反向代理和 Cloudflare 会断开长时间无数据的 WebSocket
+const CLOSE_REPLACED = 4000;       // 与 server.js 保持一致：连接被同一浏览器的新连接替换
 const MAX_TEXT_BYTES = 60000;      // 文字作为单条消息发送，需小于 64 KB
 const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // 去掉易混淆的 0/O、1/I/L
 const CODE_LEN = 8;                // 31^8 ≈ 2^40
@@ -46,6 +47,8 @@ const verifiedLan = new Set();
 
 let ws = null;
 let heartbeat = null;
+
+let deviceKeyCache = null;
 
 // ---------- 工具 ----------
 
@@ -93,6 +96,18 @@ function toB64(bytes) {
   let s = '';
   for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
   return btoa(s);
+}
+
+// 本浏览器的设备标识，只发给服务器：重连时据此替换掉还没断开的旧连接，名字也保持不变
+function deviceKey() {
+  if (deviceKeyCache) return deviceKeyCache;
+  let key = null;
+  try { key = localStorage.getItem('deviceKey'); } catch {}
+  if (!/^[0-9a-f]{32}$/.test(key || '')) {
+    key = toHex(crypto.getRandomValues(new Uint8Array(16)));
+    try { localStorage.setItem('deviceKey', key); } catch {}
+  }
+  return (deviceKeyCache = key);
 }
 
 function fromB64(str) {
@@ -187,7 +202,7 @@ function connect() {
   ws.binaryType = 'arraybuffer';
 
   ws.onopen = () => {
-    ws.send(JSON.stringify({ type: 'intro', device: deviceLabel() }));
+    ws.send(JSON.stringify({ type: 'intro', device: deviceLabel(), key: deviceKey() }));
     clearInterval(heartbeat);
     heartbeat = setInterval(() => { if (ws.readyState === WebSocket.OPEN) ws.send('ping'); }, HEARTBEAT);
     sendLanTag();
@@ -200,14 +215,19 @@ function connect() {
     else onRelayFrame(e.data);
   };
 
-  ws.onclose = () => {
+  ws.onclose = e => {
     clearInterval(heartbeat);
-    setStatus(false);
     for (const link of state.links.values()) link.close();
     state.links.clear();
     state.peers.clear();
     renderPeers();
     failAllTransfers('与服务器的连接断开');
+    // 同一浏览器的另一个标签页接管了连接：不自动重连，切回本页时再重连，避免两个标签页互相抢
+    if (e.code === CLOSE_REPLACED) {
+      setStatus(false, '已在其他标签页打开');
+      return;
+    }
+    setStatus(false);
     setTimeout(connect, 2000);
   };
 }
@@ -225,6 +245,10 @@ function onServerMessage(msg) {
       $('my-name').textContent = msg.name;
       $('my-device').textContent = deviceLabel();
       setStatus(true);
+      break;
+    case 'name':
+      state.me.name = msg.name;
+      $('my-name').textContent = msg.name;
       break;
     case 'peers':
       updatePeers(msg.peers);
@@ -749,10 +773,10 @@ function renderLan() {
 
 // ---------- 界面 ----------
 
-function setStatus(online) {
+function setStatus(online, text) {
   const el = $('status');
   el.className = 'status ' + (online ? 'online' : 'offline');
-  el.textContent = online ? '已连接' : '重新连接中…';
+  el.textContent = text || (online ? '已连接' : '重新连接中…');
 }
 
 function peerName(id) {

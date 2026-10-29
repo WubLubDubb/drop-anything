@@ -183,6 +183,7 @@ TURN_URLS=turn:drop.example.com:3478 TURN_USERNAME=user TURN_CREDENTIAL=pass nod
 
 - Received files are held in memory before saving, so multi-GB files may fail on phones.
 - Subnets are approximated as /24 or /16 because browsers don't expose the netmask. Two different LANs behind the same public IP that use the same subnet (e.g. two Xiaomi routers with the default `192.168.31.x`) are treated as one LAN: devices see each other but can't connect.
+- Only one tab per browser is online at a time: opening the page in another tab takes over, and the old tab shows 「已在其他标签页打开」 (open in another tab) until you switch back to it.
 - LAN direct mode needs camera permission. A device without a camera can't enable it; pair it by code instead, and let the other device enable LAN direct mode to establish the direct connection.
 
 ## License

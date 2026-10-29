@@ -5,12 +5,20 @@ import { DurableObject } from 'cloudflare:workers';
 
 const ID_LEN = 12; // 与前端 ID_LEN 保持一致
 const MAX_CANDIDATES = 8;
+const CLOSE_REPLACED = 4000; // 与 server.js 相同
+// 前端每 30 秒发一次心跳；后台标签页的定时器可能被浏览器降到每分钟一次，所以留足余量
+const STALE_MS = 120000;
+const SWEEP_MS = 60000;
 
 const ADJECTIVES = ['蓝色', '橙色', '安静', '勇敢', '快乐', '聪明', '温柔', '敏捷', '闪亮', '慵懒', '好奇', '淡定', '机灵', '热情', '神秘', '自由'];
 const ANIMALS = ['海豚', '狐狸', '熊猫', '企鹅', '考拉', '水獭', '鲸鱼', '猫头鹰', '刺猬', '松鼠', '小鹿', '海豹', '柴犬', '兔子', '鹦鹉', '浣熊'];
 
 const randomInt = n => crypto.getRandomValues(new Uint32Array(1))[0] % n;
 const pick = arr => arr[randomInt(arr.length)];
+
+// 由浏览器的设备标识决定名字，同一浏览器重连后名字不变（与 server.js 相同）
+const nameFor = key => ADJECTIVES[parseInt(key.slice(0, 2), 16) % ADJECTIVES.length]
+  + ANIMALS[parseInt(key.slice(2, 4), 16) % ANIMALS.length];
 
 function randomId() {
   const b = crypto.getRandomValues(new Uint8Array(9));
@@ -84,7 +92,22 @@ export class Hub extends DurableObject {
     this.clients.set(client.id, client);
     this.persist(client);
     this.send(client, { type: 'welcome', id: client.id, name: client.name, iceServers: iceServers(this.env), relay: this.env.RELAY === '1' });
+    if ((await this.ctx.storage.getAlarm()) === null) await this.ctx.storage.setAlarm(Date.now() + SWEEP_MS);
     return new Response(null, { status: 101, webSocket: clientSide });
+  }
+
+  // 定时清理掉线但没有正常关闭的连接（断网、休眠）。心跳由运行时自动回复，这里读取最后一次回复的时间
+  async alarm() {
+    const now = Date.now();
+    for (const ws of this.ctx.getWebSockets()) {
+      const client = this.clientOf(ws);
+      if (!client) continue;
+      const lastPing = this.ctx.getWebSocketAutoResponseTimestamp(ws)?.getTime() ?? 0;
+      if (now - Math.max(lastPing, client.joined) < STALE_MS) continue;
+      this.dropClient(client);
+      try { ws.close(1001, 'timeout'); } catch {}
+    }
+    if (this.clients.size) await this.ctx.storage.setAlarm(now + SWEEP_MS);
   }
 
   /** 把设备信息存进连接的附加数据，休眠后才能恢复 */
@@ -166,6 +189,17 @@ export class Hub extends DurableObject {
     switch (msg.type) {
       case 'intro':
         client.device = String(msg.device || '').slice(0, 40) || '未知设备';
+        if (/^[0-9a-f]{32}$/.test(msg.key)) {
+          client.key = msg.key;
+          client.name = nameFor(msg.key);
+          this.send(client, { type: 'name', name: client.name });
+          // 换网络、休眠唤醒后重连时，旧连接往往还没断开，直接替换掉
+          for (const other of [...this.clients.values()]) {
+            if (other === client || other.key !== client.key) continue;
+            this.dropClient(other);
+            try { other.ws.close(CLOSE_REPLACED, 'replaced'); } catch {}
+          }
+        }
         client.ready = true;
         this.persist(client);
         this.refresh([client.net], [client.room].filter(Boolean), client.lans);
@@ -203,7 +237,10 @@ export class Hub extends DurableObject {
 
   remove(ws) {
     const client = this.clientOf(ws);
-    if (!client) return;
+    if (client) this.dropClient(client);
+  }
+
+  dropClient(client) {
     this.clients.delete(client.id);
     this.refresh([client.net], [client.room].filter(Boolean), client.lans);
   }

@@ -81,6 +81,13 @@ const ANIMALS = ['海豚', '狐狸', '熊猫', '企鹅', '考拉', '水獭', '�
 const pick = arr => arr[crypto.randomInt(arr.length)];
 const randomId = () => crypto.randomBytes(9).toString('base64url'); // 12 个字符
 
+// 由浏览器的设备标识决定名字，同一浏览器重连后名字不变
+const nameFor = key => ADJECTIVES[parseInt(key.slice(0, 2), 16) % ADJECTIVES.length]
+  + ANIMALS[parseInt(key.slice(2, 4), 16) % ANIMALS.length];
+
+// 连接被同一浏览器的新连接替换时使用的关闭码，前端据此不再自动重连
+const CLOSE_REPLACED = 4000;
+
 /** @type {Map<string, Client>} */
 const clients = new Map();
 
@@ -216,6 +223,17 @@ wss.on('connection', (ws, req) => {
     switch (msg.type) {
       case 'intro':
         client.device = String(msg.device || '').slice(0, 40) || '未知设备';
+        if (/^[0-9a-f]{32}$/.test(msg.key)) {
+          client.key = msg.key;
+          client.name = nameFor(msg.key);
+          send(client, { type: 'name', name: client.name });
+          // 换网络、休眠唤醒后重连时，旧连接往往还没断开，直接替换掉
+          for (const other of clients.values()) {
+            if (other === client || other.key !== client.key) continue;
+            dropClient(other);
+            other.ws.close(CLOSE_REPLACED, 'replaced');
+          }
+        }
         client.ready = true;
         refresh([client.net], [client.room].filter(Boolean), [...client.lans]);
         break;
@@ -241,10 +259,14 @@ wss.on('connection', (ws, req) => {
   });
 
   ws.on('close', () => {
-    clients.delete(client.id);
-    refresh([client.net], [client.room].filter(Boolean), [...client.lans]);
+    if (clients.get(client.id) === client) dropClient(client);
   });
 });
+
+function dropClient(client) {
+  clients.delete(client.id);
+  refresh([client.net], [client.room].filter(Boolean), [...client.lans]);
+}
 
 // 中转消息：把 [目标 id][负载] 改写成 [来源 id][负载] 后转发
 function relay(client, data) {
