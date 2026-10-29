@@ -1,0 +1,21 @@
+name = "drop-anything"
+main = "worker.js"
+compatibility_date = "2025-09-01"
+
+# 前端直接复用项目根目录的 public/
+[assets]
+directory = "../public"
+binding = "ASSETS"
+
+[[durable_objects.bindings]]
+name = "HUB"
+class_name = "Hub"
+
+# 免费套餐只支持 SQLite 存储的 Durable Object
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Hub"]
+
+[vars]
+# 设为 "1" 允许经服务器中转文件数据（会消耗 Workers 请求额度），默认关闭
+RELAY = "0"

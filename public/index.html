@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#2f6fed">
+  <title>Drop Anything</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>Drop Anything</h1>
+    <div id="status" class="status offline">连接中…</div>
+  </header>
+
+  <main>
+    <section class="card me">
+      <div class="label">我的设备</div>
+      <div id="my-name" class="name">—</div>
+      <div id="my-device" class="sub"></div>
+      <div class="row lan">
+        <button id="lan-enable" class="secondary">开启局域网直连</button>
+        <span id="lan-hint" class="sub"></span>
+      </div>
+    </section>
+
+    <section class="card room">
+      <div id="room-out">
+        <div class="label">不在同一局域网，或想加密验证对方？用配对码</div>
+        <div class="row">
+          <input id="room-input" maxlength="9" placeholder="输入 8 位配对码" autocomplete="off" autocapitalize="characters" spellcheck="false">
+          <button id="room-join">加入</button>
+          <button id="room-create" class="secondary">新建房间</button>
+        </div>
+      </div>
+      <div id="room-in" hidden>
+        <div class="label">已加入房间（端到端加密），其他设备输入配对码或扫码加入</div>
+        <div class="room-body">
+          <div>
+            <div id="room-code" class="code"></div>
+            <div class="row">
+              <button id="room-copy" class="secondary">复制链接</button>
+              <button id="room-leave" class="secondary">退出房间</button>
+            </div>
+          </div>
+          <div id="room-qr" class="qr"></div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>可发送的设备</h2>
+      <div id="peers" class="peers"></div>
+      <p id="empty" class="empty">
+        暂时没有其他设备。<br>
+        两台设备都点「开启局域网直连」后，同一局域网的设备会自动出现；也可以用配对码配对。
+      </p>
+    </section>
+
+    <section id="transfers-section" hidden>
+      <h2>传输记录</h2>
+      <div id="transfers" class="transfers"></div>
+    </section>
+  </main>
+
+  <input type="file" id="file-input" multiple hidden>
+
+  <dialog id="text-dialog">
+    <form method="dialog">
+      <h3 id="text-title">发送文字</h3>
+      <textarea id="text-input" rows="5" placeholder="输入要发送的文字或链接"></textarea>
+      <div class="row end">
+        <button value="cancel" class="secondary">取消</button>
+        <button value="send" id="text-send">发送</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="recv-dialog">
+    <form method="dialog">
+      <h3 id="recv-title">收到文字</h3>
+      <div id="recv-text" class="recv-text"></div>
+      <div class="row end">
+        <button value="close" class="secondary">关闭</button>
+        <button value="copy" id="recv-copy">复制</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="app.js" defer></script>
+</body>
+</html>

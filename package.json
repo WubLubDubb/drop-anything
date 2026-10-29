@@ -1,0 +1,16 @@
+{
+  "name": "drop-anything",
+  "version": "0.1.0",
+  "description": "在同一网络或通过房间码互传文件，WebRTC 直连失败时自动经服务器中转",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "license": "MIT"
+}

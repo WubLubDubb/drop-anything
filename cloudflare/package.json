@@ -1,0 +1,13 @@
+{
+  "name": "drop-anything-cloudflare",
+  "private": true,
+  "description": "Drop Anything 配对服务的 Cloudflare Workers 版本",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  },
+  "license": "MIT"
+}

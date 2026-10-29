@@ -1,0 +1,7 @@
+node_modules/
+.wrangler/
+# 本机自签名证书（含私钥）
+certs/
+# 本地开发工具配置
+.claude/
+.DS_Store
