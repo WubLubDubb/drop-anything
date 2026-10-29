@@ -9,6 +9,7 @@ Send files and text between devices on the same local network, right from the br
 - 🔍 **Only shows devices on your LAN**: devices are grouped by private subnet, not by public IP, so you don't see every stranger behind the same campus NAT.
 - 🔐 **End-to-end encrypted pairing**: the server only sees a hash of the pairing code, so it can neither read nor forge signaling between paired devices.
 - ☁️ **Server only does pairing**: deploy it for free on Cloudflare Workers, or on any VPS or Raspberry Pi. It needs almost no bandwidth.
+- 🖥️ **Command-line client**: send to and receive from a remote server or any device without a browser.
 
 > The UI is currently in Chinese. Button labels are given below in English, followed by the Chinese label.
 
@@ -55,6 +56,33 @@ Results from other networks and browsers are welcome.
 ### Different networks, or verifying the other device: pairing code
 
 Click **New room** to generate an 8-character pairing code (e.g. `K7PM-Q3XD`); the other device enters it or scans the QR code. Note: if there's no network path between two segments (e.g. a device behind a dorm router and one on campus Wi-Fi), pairing still won't let them transfer unless relay is enabled (`RELAY=1`).
+
+## Command-line client (for devices without a browser)
+
+`cli/` contains a command-line client for devices without a browser, such as a remote server. It speaks the same protocol as the web page and only talks to devices in the same room, so all of its signaling is end-to-end encrypted.
+
+```bash
+cd cli
+npm install          # Node.js 20+; node-datachannel ships prebuilt binaries
+npm install -g .     # optional: adds the drop-anything command
+```
+
+**Receive on the server**: it prints a pairing code and a QR code. Join the room from the browser on your phone or laptop, then send files to the device labeled `Linux · 命令行` (CLI). Files are streamed to disk instead of being held in memory, and existing files are never overwritten.
+
+```bash
+drop-anything receive --server https://drop.example.com --dir ~/incoming
+```
+
+**Send from the server**: waits for the first device to join the room (or the one named with `--to`), sends, then exits.
+
+```bash
+drop-anything send report.pdf logs.zip --text "done" --server https://drop.example.com --code K7PM-Q3XD
+```
+
+- `--code` also accepts the full room link. `DROP_SERVER` and `DROP_CODE` can be used instead of the flags. On a shared machine, prefer `DROP_CODE` or let the CLI create the room, since other users can see command-line arguments with `ps`.
+- The CLI always uses real local IPs, never `xxx.local` names. On a network that blocks multicast, the browser on the other end therefore usually doesn't need LAN direct mode when paired by code (only one side needs real IPs).
+- A cloud server with a public IP can usually be reached directly. Open a UDP port range in its firewall or security group and pass it with `--ports 40000-40100`. If the server is behind a NAT you don't control, a direct connection may fail; enable relay (`RELAY=1`) or TURN.
+- The CLI doesn't take part in LAN auto-discovery; only devices in the same room can see it. In `send` mode, incoming files are ignored; use `receive` to accept them.
 
 ## Encryption and security boundaries
 

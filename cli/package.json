@@ -1,0 +1,18 @@
+{
+  "name": "drop-anything-cli",
+  "version": "0.1.0",
+  "description": "Drop Anything 命令行客户端：在没有浏览器的设备上收发文件",
+  "type": "module",
+  "bin": {
+    "drop-anything": "drop.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "node-datachannel": "0.33.4",
+    "qrcode-terminal": "0.12.0",
+    "ws": "^8.18.0"
+  },
+  "license": "MIT"
+}
