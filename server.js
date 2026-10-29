@@ -223,16 +223,19 @@ wss.on('connection', (ws, req) => {
     switch (msg.type) {
       case 'intro':
         client.device = String(msg.device || '').slice(0, 40) || '未知设备';
-        if (/^[0-9a-f]{32}$/.test(msg.key)) {
-          client.key = msg.key;
-          client.name = nameFor(msg.key);
-          send(client, { type: 'name', name: client.name });
-          // 换网络、休眠唤醒后重连时，旧连接往往还没断开，直接替换掉
-          for (const other of clients.values()) {
-            if (other === client || other.key !== client.key) continue;
-            dropClient(other);
-            other.ws.close(CLOSE_REPLACED, 'replaced');
-          }
+        // 没有设备标识的是更新前的旧页面：无法识别重连，不加入列表，提示刷新
+        if (!/^[0-9a-f]{32}$/.test(msg.key)) {
+          send(client, { type: 'error', message: '页面已更新，请刷新' });
+          break;
+        }
+        client.key = msg.key;
+        client.name = nameFor(msg.key);
+        send(client, { type: 'name', name: client.name });
+        // 换网络、休眠唤醒后重连时，旧连接往往还没断开，直接替换掉
+        for (const other of clients.values()) {
+          if (other === client || other.key !== client.key) continue;
+          dropClient(other);
+          other.ws.close(CLOSE_REPLACED, 'replaced');
         }
         client.ready = true;
         refresh([client.net], [client.room].filter(Boolean), [...client.lans]);

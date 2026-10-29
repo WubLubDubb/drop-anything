@@ -69,7 +69,7 @@ export class Hub extends DurableObject {
     // 从休眠中恢复时，内存是空的，从各连接的附加数据里重建设备列表
     for (const ws of ctx.getWebSockets()) {
       const info = ws.deserializeAttachment();
-      if (info) this.clients.set(info.id, { ...info, ws });
+      if (info && !info.dropped) this.clients.set(info.id, { ...info, ws });
     }
     // 前端的心跳由运行时直接回复，不会唤醒 Durable Object
     ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair('ping', 'pong'));
@@ -189,16 +189,19 @@ export class Hub extends DurableObject {
     switch (msg.type) {
       case 'intro':
         client.device = String(msg.device || '').slice(0, 40) || '未知设备';
-        if (/^[0-9a-f]{32}$/.test(msg.key)) {
-          client.key = msg.key;
-          client.name = nameFor(msg.key);
-          this.send(client, { type: 'name', name: client.name });
-          // 换网络、休眠唤醒后重连时，旧连接往往还没断开，直接替换掉
-          for (const other of [...this.clients.values()]) {
-            if (other === client || other.key !== client.key) continue;
-            this.dropClient(other);
-            try { other.ws.close(CLOSE_REPLACED, 'replaced'); } catch {}
-          }
+        // 没有设备标识的是更新前的旧页面：无法识别重连，不加入列表，提示刷新
+        if (!/^[0-9a-f]{32}$/.test(msg.key)) {
+          this.send(client, { type: 'error', message: '页面已更新，请刷新' });
+          break;
+        }
+        client.key = msg.key;
+        client.name = nameFor(msg.key);
+        this.send(client, { type: 'name', name: client.name });
+        // 换网络、休眠唤醒后重连时，旧连接往往还没断开，直接替换掉
+        for (const other of [...this.clients.values()]) {
+          if (other === client || other.key !== client.key) continue;
+          this.dropClient(other);
+          try { other.ws.close(CLOSE_REPLACED, 'replaced'); } catch {}
         }
         client.ready = true;
         this.persist(client);
@@ -241,6 +244,8 @@ export class Hub extends DurableObject {
   }
 
   dropClient(client) {
+    // 先标记再移除：连接若没能立即关闭，Durable Object 从休眠恢复时也不会把它加回列表
+    try { this.persist({ ...client, dropped: true }); } catch {}
     this.clients.delete(client.id);
     this.refresh([client.net], [client.room].filter(Boolean), client.lans);
   }
